@@ -26,6 +26,7 @@ jobs:
       - name: Fetch NVD data
         env:
           NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
+        　PYTHONUNBUFFERED: "1"
         run: python nvd_fetch.py
 
       - name: Commit and push results

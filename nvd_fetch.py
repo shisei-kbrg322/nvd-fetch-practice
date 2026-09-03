@@ -17,7 +17,6 @@ import os
 import sys
 import json
 import time
-import gzip
 import requests
 from datetime import datetime, timezone, timedelta
 
@@ -115,8 +114,8 @@ def incremental_fetch(since_iso):
         print(f"[差分取得] {window_start.isoformat()} 〜 {window_end.isoformat()}")
 
         params = {
-            "lastModStartDate": window_start.strftime("%Y-%m-%dT%H:%M:%S.000%z"),
-            "lastModEndDate": window_end.strftime("%Y-%m-%dT%H:%M:%S.000%z"),
+            "lastModStartDate": window_start.strftime("%Y-%m-%dT%H:%M:%S.000+00:00"),
+            "lastModEndDate": window_end.strftime("%Y-%m-%dT%H:%M:%S.000+00:00"),
         }
         all_cves.extend(_fetch_all(params))
 
@@ -152,14 +151,28 @@ def normalize(vulnerabilities):
     return records
 
 
+CHUNK_SIZE = 20000  # 1ファイルあたりの件数上限(GitHubの100MB制限を避けるため分割)
+
+
 def save_output(records):
     os.makedirs(OUTPUT_DIR, exist_ok=True)
     ts = datetime.now().strftime("%Y%m%d_%H%M%S")
-    path = os.path.join(OUTPUT_DIR, f"nvd_cves_{ts}.json.gz")
-    with gzip.open(path, "wt", encoding="utf-8") as f:
-        json.dump(records, f, ensure_ascii=False)
-    print(f"[完了] {len(records)}件を書き出しました: {path}")
-    return path
+
+    if not records:
+        print("[完了] 新規・更新分はありませんでした")
+        return []
+
+    paths = []
+    for i in range(0, len(records), CHUNK_SIZE):
+        chunk = records[i:i + CHUNK_SIZE]
+        part_num = i // CHUNK_SIZE + 1
+        path = os.path.join(OUTPUT_DIR, f"nvd_cves_{ts}_part{part_num:03d}.json")
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(chunk, f, ensure_ascii=False)
+        print(f"[完了] {len(chunk)}件を書き出しました: {path}")
+        paths.append(path)
+
+    return paths
 
 
 def load_state():

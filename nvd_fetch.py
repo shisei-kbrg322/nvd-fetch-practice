@@ -43,11 +43,18 @@ def _headers():
     return h
 
 
-def _request_with_retry(params, max_retries=5):
-    """403/503/429時に指数バックオフしつつリクエストする"""
+def _request_with_retry(params, max_retries=8):
+    """403/503/429、および通信タイムアウト時に指数バックオフしつつリクエストする"""
     delay = 5
     for attempt in range(1, max_retries + 1):
-        resp = requests.get(BASE_URL, params=params, headers=_headers(), timeout=30)
+        try:
+            resp = requests.get(BASE_URL, params=params, headers=_headers(), timeout=60)
+        except requests.exceptions.RequestException as e:
+            print(f"[再試行 {attempt}/{max_retries}] 通信エラー: {e} - {delay}秒待機します", file=sys.stderr)
+            time.sleep(delay)
+            delay = min(delay * 2, 60)
+            continue
+
         if resp.status_code == 200:
             return resp.json()
         if resp.status_code in (403, 429, 503):

@@ -17,6 +17,7 @@ import os
 import sys
 import json
 import time
+import gzip
 import requests
 from datetime import datetime, timezone, timedelta
 
@@ -147,7 +148,6 @@ def normalize(vulnerabilities):
             "cvss_score": cvss.get("baseScore"),
             "cvss_severity": cvss.get("baseSeverity"),
             "source": "NVD",
-            "raw": cve,  # 後段でCWE/CPE等を参照する場合に備え元データを保持
         })
     return records
 
@@ -155,9 +155,9 @@ def normalize(vulnerabilities):
 def save_output(records):
     os.makedirs(OUTPUT_DIR, exist_ok=True)
     ts = datetime.now().strftime("%Y%m%d_%H%M%S")
-    path = os.path.join(OUTPUT_DIR, f"nvd_cves_{ts}.json")
-    with open(path, "w", encoding="utf-8") as f:
-        json.dump(records, f, ensure_ascii=False, indent=2)
+    path = os.path.join(OUTPUT_DIR, f"nvd_cves_{ts}.json.gz")
+    with gzip.open(path, "wt", encoding="utf-8") as f:
+        json.dump(records, f, ensure_ascii=False)
     print(f"[完了] {len(records)}件を書き出しました: {path}")
     return path
 

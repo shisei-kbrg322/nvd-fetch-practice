@@ -1,0 +1,37 @@
+name: NVD Fetch
+
+on:
+  schedule:
+    - cron: '0 */4 * * *'   # 4時間おき（UTC基準）
+  workflow_dispatch:         # 手動実行ボタンを有効化
+
+permissions:
+  contents: write
+
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install requests
+
+      - name: Fetch NVD data
+        env:
+          NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
+        run: python nvd_fetch.py
+
+      - name: Commit and push results
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add output/ last_sync.json
+          git diff --cached --quiet || git commit -m "Update NVD data $(date -u +'%Y-%m-%dT%H:%M:%SZ')"
+          git push
